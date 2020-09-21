@@ -1,44 +1,60 @@
+#!/usr/bin/python3
+
 import io
 import os
 import ssl
 import json
 from PIL import Image
 
+import tensorflow as tf
+import numpy as np
+import math
+
+# models :
+from models.model_simple import build_model_simple
 
 from flask import Flask, jsonify, request, session, g, redirect, url_for,\
     abort, render_template, flash
-
-from torchvision import models
-import torchvision.transforms as transforms
 
 
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.debug=True
 
+MODEL_SAVE_DIR_PATH = '../cnn_mnist/trained/'
+MODEL_NAME = 'model'
+MODEL_SAVE_PATH = os.path.join(MODEL_SAVE_DIR_PATH, MODEL_NAME)
+
 def transform_image(image_bytes):
-    my_transforms = transforms.Compose([transforms.Resize(255),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-            [0.229, 0.224, 0.225])])
-    image = Image.open(io.BytesIO(image_bytes))
-    return my_transforms(image).unsqueeze(0)
+    img = np.array(image_bytes)
+    img = img.reshape(1, 28, 28 ,1)
+    return img
 
 
 # prepare model
-model = models.densenet121(pretrained=True)
-# 모델을 inference에만 사용하도록 설정(eval 모드로 변경)
-model.eval()
 
-imagenet_class_index = json.load(open('../_static/imagenet_class_index.json'))
+classCnt = 10
+X = tf.placeholder(tf.float32, [None, 28, 28, 1])
+Y = tf.placeholder(tf.float32, [None, classCnt])
+keep_prob = tf.placeholder(tf.float32)
 
-def get_prediction(image_bytes):
-    tensor = transform_image(image_bytes=image_bytes)
-    outputs = model.forward(tensor)
-    _, y_hat = outputs.max(1)
-    predicted_idx = str(y_hat.item())
-    return imagenet_class_index[predicted_idx]
+# select model : FIXME:
+model = build_model_simple(X, keep_prob=keep_prob, labelCnt=classCnt)
+inference = tf.argmax(model, 1)
+
+inference_session = tf.Session()
+initializer = tf.global_variables_initializer()
+inference_session.run(initializer)
+
+saver = tf.compat.v1.train.Saver()
+print(">>>>>>>>>>>>>>>>>>> restore previous model")
+saver.restore(inference_session, tf.train.latest_checkpoint(MODEL_SAVE_DIR_PATH))
+
+
+def get_prediction(images):
+    ret = inference_session.run([inference], feed_dict={X:images.reshape(-1, 28, 28, 1), keep_prob:1.0})
+    print(">>>>>>>>>>>> inference result=", ret)
+    return ret
 
 
 
@@ -71,8 +87,8 @@ def predict():
         file = request.files['file']
         # convert that to bytes
         img_bytes = file.read()
-        class_id, class_name = get_prediction(image_bytes=img_bytes)
-        return jsonify({'class_id' : class_id, 'class_name' : class_name})
+        ret = get_prediction(images=img_bytes)
+        return jsonify({'predicted_number' : ret})
 
 
 
