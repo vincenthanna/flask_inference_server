@@ -20,7 +20,10 @@ class appTestCase(unittest.TestCase):
         print('base test')
 
     def test_request(self):
-        resp = requests.post("https://127.0.0.1/predict", files={"file":open('./cat.jpg', 'rb')}, verify=False)
+        resp = requests.post("https://127.0.0.1/predict", files={"file":open('./random01.png', 'rb')}, verify=False)
+        print(resp.json())
+
+        resp = requests.post("https://127.0.0.1/predict", files={"file":open('./random06.png', 'rb')}, verify=False)
         print(resp.json())
 
 

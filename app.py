@@ -25,9 +25,18 @@ MODEL_SAVE_DIR_PATH = '../cnn_mnist/trained/'
 MODEL_NAME = 'model'
 MODEL_SAVE_PATH = os.path.join(MODEL_SAVE_DIR_PATH, MODEL_NAME)
 
+import io
+from PIL import Image
+from numpy import asarray
+
 def transform_image(image_bytes):
-    img = np.array(image_bytes)
+    img = Image.open(io.BytesIO(image_bytes)).convert('L')
+    img = asarray(img.resize((28, 28)))
     img = img.reshape(1, 28, 28 ,1)
+    tempimg = img.reshape(28 * 28)
+    # 검은색을 255 값으로 반전을 해주어야 한다.
+    if tempimg[0] > 200 and tempimg[1]>200:
+        img = 255 - img
     return img
 
 
@@ -40,7 +49,7 @@ keep_prob = tf.placeholder(tf.float32)
 
 # select model : FIXME:
 model = build_model_simple(X, keep_prob=keep_prob, labelCnt=classCnt)
-inference = tf.argmax(model, 1)
+
 
 inference_session = tf.Session()
 initializer = tf.global_variables_initializer()
@@ -52,11 +61,12 @@ saver.restore(inference_session, tf.train.latest_checkpoint(MODEL_SAVE_DIR_PATH)
 
 
 def get_prediction(images):
-    ret = inference_session.run([inference], feed_dict={X:images.reshape(-1, 28, 28, 1), keep_prob:1.0})
-    print(">>>>>>>>>>>> inference result=", ret)
-    return ret
-
-
+    ret = inference_session.run(model, feed_dict={X:images.reshape(-1, 28, 28, 1), keep_prob:1.0})
+    ret = np.array(ret)
+    if len(ret.shape) == 2:
+        ret = ret[0]
+    retval = np.argmax(ret)
+    return retval
 
 
 # secret key for SSL connection
@@ -86,8 +96,10 @@ def predict():
     if request.method == 'POST':
         file = request.files['file']
         # convert that to bytes
-        img_bytes = file.read()
-        ret = get_prediction(images=img_bytes)
+        img_bytes = bytearray(file.read())
+        img = transform_image(img_bytes)
+        # print(">>>>> img.shape=", img.shape)
+        ret = int(get_prediction(images=img))
         return jsonify({'predicted_number' : ret})
 
 
