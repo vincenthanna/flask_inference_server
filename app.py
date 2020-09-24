@@ -94,7 +94,14 @@ def hello():
 def predict():
     print("predict() called")
     if request.method == 'POST':
+        print("Request : ")
+        print("=========")
+        print(request)
+        print(request.files)
+        print("=========")
         file = request.files['file']
+        print("<<<<<<")
+
         # convert that to bytes
         img_bytes = bytearray(file.read())
         img = transform_image(img_bytes)
@@ -102,6 +109,14 @@ def predict():
         ret = int(get_prediction(images=img))
         return jsonify({'predicted_number' : ret})
 
+
+# view 함수들
+@app.route("/query_image", methods=['GET', 'POST'])
+def query_number():
+    error = None
+    if request.method == 'POST':
+        pass
+    return render_template('query_image.html', error=error)
 
 
 if __name__ == '__main__':

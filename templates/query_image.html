@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block body %}
+  <h2>Query Image</h2>
+  {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+  <form action="{{ url_for('predict') }}" method=post enctype="multipart/form-data">
+    <input type="file" name="file" id="file">
+    <input type="submit" value="Upload Image" name="submit">
+  </form>
+{% endblock %}
